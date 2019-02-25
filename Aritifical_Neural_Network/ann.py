@@ -1,78 +1,60 @@
-#https://machinelearningmastery.com/regression-tutorial-keras-deep-learning-library-python/
-
 import pandas as pd
 
 # Importing Dataset
-dataset = pd.read_csv('50_Startups.csv')
+dataset = pd.read_csv('Churn_Modelling.csv')
 
-X = dataset.iloc[:,:-1].values
-y = dataset.iloc[:, -1].values
+X = dataset.iloc[:, 3:13].values
+y = dataset.iloc[:, 13].values
 
-#Encoding Categorical Features
+# Encoding categorical data
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-
-label_enc = LabelEncoder()
-X[:,3] = label_enc.fit_transform(X[:,3])
-
-hot_enc = OneHotEncoder(categorical_features=[3])
-X = hot_enc.fit_transform(X).toarray()
-
-#Remove first dummy feature to prevent dummy variable trap
+labelencoder_X_1 = LabelEncoder()
+X[:, 1] = labelencoder_X_1.fit_transform(X[:, 1])
+labelencoder_X_2 = LabelEncoder()
+X[:, 2] = labelencoder_X_2.fit_transform(X[:, 2])
+onehotencoder = OneHotEncoder(categorical_features = [1])
+X = onehotencoder.fit_transform(X).toarray()
+#To avoid dummy variable trap
 X = X[:, 1:]
 
-print(X)
-
-# Splitting dataset into the Training set and Test set
+# Splitting the dataset into the Training set and Test set
 from sklearn.model_selection import train_test_split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 0)
 
-#Applying Feature Scaling
+# Feature Scaling
 from sklearn.preprocessing import StandardScaler
-
-sscaler = StandardScaler()
-X_train = sscaler.fit_transform(X_train)
-X_test = sscaler.transform(X_test)
+sc = StandardScaler()
+X_train = sc.fit_transform(X_train)
+X_test = sc.transform(X_test)
 
 #ANN
 from keras.models import Sequential
 from keras.layers import Dense
 
-#https://stackoverflow.com/questions/47944463/specify-input-argument-with-kerasregressor
-def baseline_model(x):
-    def bm():
-        # Initialising ANN
-        model = Sequential()
+# Initialising ANN
+model = Sequential()
 
-        # Adding layer
-        model.add(Dense(4, input_dim=5, activation='relu'))
+# Adding layer
+model.add(Dense(6, input_dim=X.shape[1], activation='relu'))
 
-        # Adding the second hidden layer
-        model.add(Dense(6, kernel_initializer='normal', activation='relu'))
+# Adding the second hidden layer
+model.add(Dense(6, activation='relu'))
 
-        # Adding the output layer
-        model.add(Dense(1, kernel_initializer='normal'))
-
-        # Compiling ANN
-        model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy'])
-
-        return model
-
-    return bm
+# Adding the output layer
+model.add(Dense(1, activation='sigmoid'))
 
 
+# Compiling ANN
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-#The Keras wrapper object for use in scikit-learn as a regression estimator is called KerasRegressor.
-#We create an instance and pass it both the name of the function to create the neural network model.
+print(model.summary())
+#Note - below fit is different from scikit learn's fir method
+model.fit(X_train, y_train, epochs=200, verbose=2)
 
-from keras.wrappers.scikit_learn import KerasRegressor
-classifier = KerasRegressor(build_fn=baseline_model(5), epochs=100, batch_size=5, verbose=0)
+y_pred = model.predict(X_test)
+y_pred = (y_pred > 0.5)
 
-classifier.fit(X_train, y_train)
-y_pred = classifier.predict(X_test)
-
-print(y_pred)
-
-from sklearn.model_selection import cross_val_score
-
-results = cross_val_score(classifier, X_train, y_train, scoring='r2')
-print(results.mean(), results.std())
+# Making the Confusion Matrix
+from sklearn.metrics import confusion_matrix
+cm = confusion_matrix(y_test, y_pred)
+print(cm)
